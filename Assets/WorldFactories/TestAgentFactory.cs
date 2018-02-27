@@ -25,7 +25,7 @@ namespace Assets.WorldFactories
         public void CreateAgent(WorldGrid worldGrid)
         {
             WorldAgent myAgent = (Instantiate(Resources.Load("AgentEdge")) as GameObject).GetComponent<WorldAgent>();
-            myAgent.Initialize(worldGrid);
+            myAgent.Initialize(worldGrid, NewId());
         }
     }
 }
