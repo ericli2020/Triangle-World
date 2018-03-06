@@ -6,29 +6,38 @@ using Random = System.Random;
 
 namespace Assets.WorldObjects
 {
+    // DIFFERENT WORLD GRID AND WORLD AGENT FOR EACH TYPE
     // is reported to by every object which moves
     // allows gameobjects to either calculate or precalculate their nearest neighbors
     // all logic for nearest neighbor searches is stored here, searches are performed using parameters
     public class WorldGrid
         // eventually make this an object in the world?
     {
-        public Random _myRandom { get; set; }
-        public int _xDim { get; set; }
-        public int _yDim { get; set; }
-        public bool isStarted { get; set; }
+        public string Type { get; set; }
+        public Random RandomGen { get; set; }
+        public int XDim { get; set; }
+        public int YDim { get; set; }
+        private int GridX { get; set; }
+        private int GridY { get; set; }
+        public bool Started { get; set; }
         public double MoveSpeed { get; set; }
-        public float _maxRotate { get; set; }
+        public float MaxRotate { get; set; }
+        public double SearchRadius { get; set; }
         private List<WorldAgent>[,] _agentGrid;
-        public Dictionary<string, Pair<int, int>> coordsOfAgent;
+        private Dictionary<string, Pair<int, int>> _coordsOfAgent;
 
-        public WorldGrid(int xDim = 18, int yDim = 10, double moveSpeed = 0.05, float maxRotate = 10) // wraps at yMax
+        public WorldGrid(int xDim = 18, int yDim = 10, double moveSpeed = 0.05, float maxRotate = 2, double searchRadius = 1) // wraps at yMax
         {
-            _xDim = xDim;
-            _yDim = yDim;
+            SearchRadius = searchRadius;
+            XDim = xDim;
+            YDim = yDim;
             MoveSpeed = moveSpeed;
-            _maxRotate = maxRotate;
-            _myRandom = new Random();
-            _agentGrid = new List<WorldAgent>[xDim, yDim];
+            MaxRotate = maxRotate;
+            GridX = (int) Math.Ceiling(XDim / SearchRadius);
+            GridY = (int) Math.Ceiling(YDim / SearchRadius);
+
+            RandomGen = new Random();
+            _agentGrid = new List<WorldAgent>[GridX, GridY];
             for (int i = 0; i < _agentGrid.GetLength(0); i++)
             {
                 for (int j = 0; j < _agentGrid.GetLength(1); j++)
@@ -36,7 +45,7 @@ namespace Assets.WorldObjects
                     _agentGrid[i, j] = new List<WorldAgent>();
                 }
             }
-            coordsOfAgent = new Dictionary<string, Pair<int, int>>();
+            _coordsOfAgent = new Dictionary<string, Pair<int, int>>();
         }
 
         public void AddAgent(WorldAgent newAgent)
@@ -45,117 +54,116 @@ namespace Assets.WorldObjects
             // newAgent.transform.position = GetCenterLocation();
             newAgent.transform.eulerAngles = GetNewAngle();
             newAgent.GetComponent<SpriteRenderer>().color = GetNewColor();
-            int newX = (int)Math.Floor(newAgent.transform.position.x);
-            int newY = (int)Math.Floor(newAgent.transform.position.y);
-            coordsOfAgent[newAgent.Id] = new Pair<int, int>(newX, newY);
+            
+            int newX = (int)Math.Floor(newAgent.transform.position.x / SearchRadius);
+            int newY = (int)Math.Floor(newAgent.transform.position.y / SearchRadius);
+            _coordsOfAgent[newAgent.Id] = new Pair<int, int>(newX, newY);
             _agentGrid[newX, newY].Add(newAgent);
         }
 
         private Vector3 GetNewLocation()
         {
-            double xScale = _myRandom.NextDouble();
-            double yScale = _myRandom.NextDouble();
-            double xCoord = xScale * _xDim;
-            double yCoord = yScale * _yDim;
+            double xScale = RandomGen.NextDouble();
+            double yScale = RandomGen.NextDouble();
+            double xCoord = xScale * XDim;
+            double yCoord = yScale * YDim;
             return new Vector3((float)xCoord, (float)yCoord);
         }
 
         private Vector3 GetCenterLocation()
         {
-            return new Vector3(9, 5);
+            return new Vector3((float) XDim / 2, (float) YDim / 2);
         }
 
         private Vector3 GetNewAngle()
         {
-            double angleScale = _myRandom.NextDouble();
+            double angleScale = RandomGen.NextDouble();
             double rotateAngle = 360 * angleScale;
             return new Vector3(0, 0, (float)rotateAngle);
         }
 
         private Color GetNewColor()
         {
-            double rVal = _myRandom.NextDouble();
-            double gVal = _myRandom.NextDouble();
-            double bVal = _myRandom.NextDouble();
+            double rVal = RandomGen.NextDouble();
+            double gVal = RandomGen.NextDouble();
+            double bVal = RandomGen.NextDouble();
             return new Color((float) rVal, (float) gVal, (float) bVal);
         }
 
         public void reportNewLocation(WorldAgent newAgent)
         {
-            int newX = (int) Math.Floor(newAgent.transform.position.x);
-            int newY = (int) Math.Floor(newAgent.transform.position.y);
-            Pair<int, int> currPos = coordsOfAgent[newAgent.Id];
-            coordsOfAgent[newAgent.Id] = new Pair<int, int>(newX, newY);
+            int newX = (int) Math.Floor(newAgent.transform.position.x / SearchRadius);
+            int newY = (int) Math.Floor(newAgent.transform.position.y / SearchRadius);
+            Pair<int, int> currPos = _coordsOfAgent[newAgent.Id];
+            _coordsOfAgent[newAgent.Id] = new Pair<int, int>(newX, newY);
             _agentGrid[currPos.First, currPos.Second].Remove(newAgent);
             _agentGrid[newX, newY].Add(newAgent);
         }
 
         public Vector3 GetNextHeading(WorldAgent newAgent)
         {
-            // eventually combine move and update location
             Vector3 heading = newAgent.transform.eulerAngles;
             float actualX = newAgent.transform.position.x;
             float actualY = newAgent.transform.position.y;
-            int newX = (int)Math.Floor(actualX);
-            int newY = (int)Math.Floor(actualY);
+            int newX = (int)Math.Floor(actualX / SearchRadius);
+            int newY = (int)Math.Floor(actualY / SearchRadius);
             double currClosestDistance = double.PositiveInfinity;
             Vector3 targetDirection = Vector3.negativeInfinity;
 
-            // move this to a function
             Pair<double, Vector3> currPair = SearchGrid(newAgent, newX, newY, currClosestDistance, targetDirection);
             currClosestDistance = currPair.First;
             targetDirection = currPair.Second;
 
             if (newX != 0)
             {
-                if (newY != 0 && (Math.Sqrt((actualX - newX) * (actualX - newX) + (actualY - newY) * (actualY - newY)) < currClosestDistance))
+                if (newY != 0 && (Math.Sqrt((actualX - newX * SearchRadius) * (actualX - newX * SearchRadius) + (actualY - newY * SearchRadius) * (actualY - newY * SearchRadius)) < currClosestDistance))
                 {
                     currPair = SearchGrid(newAgent, newX - 1, newY - 1, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
-                if (newY != (_yDim - 1) && (Math.Sqrt((actualX - newX) * (actualX - newX) + (newY + 1 - actualY) * (newY + 1 - actualY)) <
+                if (newY != (YDim - 1) && (Math.Sqrt((actualX - newX * SearchRadius) * (actualX - newX * SearchRadius) + ((newY + 1) * SearchRadius - actualY) * ((newY + 1) * SearchRadius - actualY)) <
                     currClosestDistance))
                 {
                     currPair = SearchGrid(newAgent, newX - 1, newY + 1, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
-                if (actualX - newX < currClosestDistance)
+                if (actualX - newX * SearchRadius < currClosestDistance)
                 {
                     currPair = SearchGrid(newAgent, newX - 1, newY, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
             }
-                if (newY != 0 && ((actualY - newY) < currClosestDistance))
+                if (newY != 0 && (actualY - newY * SearchRadius < currClosestDistance))
                 {
                     currPair = SearchGrid(newAgent, newX, newY - 1, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
-                if (newY != (_yDim - 1) && ((newY + 1 - actualY) < currClosestDistance))
+                if (newY != (YDim - 1) && ((newY + 1) * SearchRadius - actualY < currClosestDistance))
                 {
                     currPair = SearchGrid(newAgent, newX, newY + 1, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
-            if (newX != (_xDim - 1))
+            if (newX != (XDim - 1))
             {
-                if (newY != 0 && (Math.Sqrt((newX + 1 - actualX) * (newX + 1 - actualX) + (actualY - newY) * (actualY - newY)) < currClosestDistance))
+                if (newY != 0 && (Math.Sqrt(((newX + 1) * SearchRadius - actualX) * ((newX + 1) * SearchRadius - actualX) + (actualY - newY * SearchRadius) * (actualY - newY * SearchRadius)) < currClosestDistance))
                 {
                     currPair = SearchGrid(newAgent, newX + 1, newY - 1, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
-                if (newY != (_yDim - 1) && (Math.Sqrt((newX + 1 - actualX) * (newX + 1 - actualX) + (newY + 1 - actualY) * (newY + 1 - actualY)) <
+                if (newY != (YDim - 1) && (Math.Sqrt(((newX + 1) * SearchRadius - actualX) * ((newX + 1) * SearchRadius - actualX) + ((newY + 1) * SearchRadius - actualY) * ((newY + 1) * SearchRadius - actualY)) <
                                       currClosestDistance))
                 {
                     currPair = SearchGrid(newAgent, newX + 1, newY + 1, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
                     targetDirection = currPair.Second;
                 }
-                if (newX + 1 - actualX < currClosestDistance)
+                if ((newX + 1) * SearchRadius - actualX < currClosestDistance)
                 {
                     currPair = SearchGrid(newAgent, newX + 1, newY, currClosestDistance, targetDirection);
                     currClosestDistance = currPair.First;
@@ -163,52 +171,51 @@ namespace Assets.WorldObjects
                 }
             }
 
-            if (currClosestDistance == double.PositiveInfinity)
+            if (Double.IsPositiveInfinity(currClosestDistance))
             {
-                double newZ = heading.z + Math.PI * _maxRotate * (_myRandom.NextDouble() - 0.5);
+                double newZ = heading.z + Math.PI * MaxRotate * (RandomGen.NextDouble() - 0.5);
                 heading = new Vector3(0, 0, (float) newZ);
             }
             else
             {
                 Vector3 targetDir = targetDirection - newAgent.transform.position;
-                // calculate target euler angles
-                // replace with arctan?
                 Vector3 defaultPointer = new Vector3(1, 0, 0);
+                // double endAngle = Math.Atan(targetDir.y / targetDir.x) / Math.PI * 180;
                 float endAngle = Vector3.Angle(defaultPointer, targetDir);
+                
                 Vector3 crossProduct = Vector3.Cross(defaultPointer, targetDir);
                 if (crossProduct.z < 0)
                 {
                     endAngle = 360 - endAngle;
+                    // problem is this doesn't find the next closest neighbor to follow
                 }
-                /*
-                isStarted = false;
-                Debug.Log(crossProduct);
-                Debug.Log(targetDir);
-                Debug.Log(endAngle);
-                Debug.Log(heading.z);
-                */
-                float angleToNew = endAngle - heading.z;
-                if (angleToNew > _maxRotate)
+
+                double angleToNew = endAngle - heading.z;
+
+                if (angleToNew > 180)
                 {
-                    angleToNew = _maxRotate;
-                } else if (angleToNew < -_maxRotate)
-                {
-                    angleToNew = -_maxRotate;
+                    angleToNew = -(360 - angleToNew);
                 }
                 
-                return new Vector3(0, 0, heading.z + angleToNew);
+                if (angleToNew > MaxRotate)
+                {
+                    angleToNew = MaxRotate;
+                } else if (angleToNew < -MaxRotate)
+                {
+                    angleToNew = -MaxRotate;
+                }
+                
+                return new Vector3(0, 0, heading.z + (float) angleToNew);
             }
             
             return heading;
-
-            // return random
         }
         
         public Pair<Double, Vector3> SearchGrid(WorldAgent newAgent, int newX, int newY, double currClosestDistance, Vector3 targetDirection)
         {
             foreach (WorldAgent nearestNeighbor in _agentGrid[newX, newY])
             {
-                double newDistance = newAgent.findDistance(nearestNeighbor);
+                double newDistance = newAgent.FindDistance(nearestNeighbor);
                 if (newDistance < currClosestDistance)
                 {
                     currClosestDistance = newDistance;
@@ -218,62 +225,6 @@ namespace Assets.WorldObjects
 
             return new Pair<Double, Vector3>(currClosestDistance, targetDirection);
         }
-
-        /*
-        public double GetClosestDistance(float x, float y, int xArea, int yArea)
-        {
-            // change this to an overload
-            int newX = (int)Math.Floor(x);
-            int newY = (int)Math.Floor(y);
-            if (newX == xArea)
-            {
-                if (y > yArea)
-                {
-                    return y - (yArea + 1);
-                }
-                else
-                {
-                    return yArea - y;
-                }
-            }
-            else if (newY == yArea)
-            {
-                if (x > xArea)
-                {
-                    return x - (xArea + 1);
-                }
-                else
-                {
-                    return xArea - x;
-                }
-            }
-            else
-            {
-                if (x > xArea)
-                {
-                    if (y > yArea)
-                    {
-                        return Math.Sqrt((x - (xArea + 1)) * (x - (xArea + 1)) + (y - (yArea + 1)) * (y - (yArea + 1)));
-                    }
-                    else
-                    {
-                        return Math.Sqrt((x - (xArea + 1)) * (x - (xArea + 1)) + (yArea - y) * (yArea - y));
-                    }
-                }
-                else
-                {
-                    if (y > yArea)
-                    {
-                        return Math.Sqrt((xArea - x) * (xArea - x) + (y - (yArea + 1)) * (y - (yArea + 1)));
-                    }
-                    else
-                    {
-                        return Math.Sqrt((xArea - x) * (xArea - x) + (yArea - y) * (yArea - y));
-                    }
-                }
-            }
-        }
-        */
     }
 
     public class Pair<T1, T2>

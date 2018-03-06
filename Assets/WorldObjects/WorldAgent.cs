@@ -10,12 +10,13 @@ namespace Assets.WorldObjects
     public class WorldAgent : MonoBehaviour, IEquatable<WorldAgent>
     {
         private WorldGrid _myWorld;
-        public string Id;
+        public string Type { get; set; }
+        public string Id { get; set; }
 
-        public void Initialize(WorldGrid newWorld, string Id)
+        public void Initialize(WorldGrid newWorld, string id)
         {
             _myWorld = newWorld;
-            this.Id = Id;
+            Id = id;
             _myWorld.AddAgent(this);
         }
 
@@ -26,7 +27,7 @@ namespace Assets.WorldObjects
 
         void Update()
         {
-            if (_myWorld.isStarted)
+            if (_myWorld.Started)
             {
                 Vector3 heading = _myWorld.GetNextHeading(this);
                 this.transform.eulerAngles = heading;
@@ -34,8 +35,8 @@ namespace Assets.WorldObjects
                 double yForward = _myWorld.MoveSpeed * Math.Sin(heading.z * Math.PI / 180);
                 double currY = (double) this.transform.position.y;
                 double currX = (double) this.transform.position.x;
-                double nextX = ((currX + xForward) % _myWorld._xDim + _myWorld._xDim) % _myWorld._xDim;
-                double nextY = ((currY + yForward) % _myWorld._yDim + _myWorld._yDim) % _myWorld._yDim;
+                double nextX = ((currX + xForward) % _myWorld.XDim + _myWorld.XDim) % _myWorld.XDim;
+                double nextY = ((currY + yForward) % _myWorld.YDim + _myWorld.YDim) % _myWorld.YDim;
                 this.transform.position = new Vector3((float) nextX, (float) nextY);
 
                 _myWorld.reportNewLocation(this);
@@ -51,7 +52,7 @@ namespace Assets.WorldObjects
             return Id == other.Id;
         }
 
-        public double findDistance(WorldAgent other)
+        public double FindDistance(WorldAgent other)
         {
             if (other.Id == this.Id)
             {

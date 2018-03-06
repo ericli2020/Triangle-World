@@ -21,18 +21,17 @@ namespace Assets.WorldControllers
         private ModuleContainer _myModules;
         private TestAgentFactory _myAgentFactory;
         private WorldGrid _myWorldGrid;
-        private int ticksGone = 0;
 
         void Start()
         {
             _myModules = new ModuleContainer(); // will be used in the future
-            _myAgentFactory = _myModules._agentFactory;
-            _myWorldGrid = _myModules._worldGrid;
-            for (int i = 0; i < 5; i++)
+            _myAgentFactory = _myModules.AgentFactory;
+            _myWorldGrid = _myModules.WorldGrid;
+            for (int i = 0; i < 20; i++)
             {
                 _myAgentFactory.CreateAgent(_myWorldGrid);
             }
-            _myWorldGrid.isStarted = true;
+            _myWorldGrid.Started = true;
 
             /*
             float actualTestX = (float)3.3;
@@ -51,20 +50,6 @@ namespace Assets.WorldControllers
 
         void Update()
         {
-            /*
-            if (ticksGone++ == 500)
-            {
-                _myWorldGrid.isStarted = false;
-                Debug.Log("stopped");
-                Dictionary<string, Pair<int, int>> coords = _myWorldGrid.coordsOfAgent;
-
-                foreach (string name in coords.Keys)
-                {
-                    Pair<int, int> coord = coords[name];
-                    Debug.Log(name + ": (" + coord.First + ", " + coord.Second + ")");
-                }
-            }
-            */
             
         }
     }

@@ -9,13 +9,13 @@ namespace Assets.WorldFactories
 {
     public class ModuleContainer
     {
-        public TestAgentFactory _agentFactory { get; set; }
-        public WorldGrid _worldGrid { get; set; }
+        public TestAgentFactory AgentFactory { get; set; }
+        public WorldGrid WorldGrid { get; set; }
 
         public ModuleContainer()
         {
-            _agentFactory = new TestAgentFactory();
-            _worldGrid = new WorldGrid();
+            AgentFactory = new TestAgentFactory();
+            WorldGrid = new WorldGrid();
 
         }
     }
